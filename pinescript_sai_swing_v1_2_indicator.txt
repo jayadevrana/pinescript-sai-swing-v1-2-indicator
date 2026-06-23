@@ -1,0 +1,86 @@
+//@version=5
+indicator(title='SAI SWING v1.2', shorttitle='Sai Swing v1.2', overlay=true)
+
+DH1 = request.security(syminfo.tickerid, 'D', high, lookahead=barmerge.lookahead_off)
+DL1 = request.security(syminfo.tickerid, 'D', low, lookahead=barmerge.lookahead_off)
+DC1 = request.security(syminfo.tickerid, 'D', close, lookahead=barmerge.lookahead_off)
+
+DH2 = request.security(syminfo.tickerid, 'D', high[1], lookahead=barmerge.lookahead_off)
+DL2 = request.security(syminfo.tickerid, 'D', low[1], lookahead=barmerge.lookahead_off)
+
+DH3 = request.security(syminfo.tickerid, 'D', high[2], lookahead=barmerge.lookahead_off)
+DL3 = request.security(syminfo.tickerid, 'D', low[2], lookahead=barmerge.lookahead_off)
+
+P = (DL1 + DH1 + DC1) / 3
+
+NewH = (DH1 + DH2 + DH3) / 3
+NewL = (DL1 + DL2 + DL3) / 3
+
+plot(P, title='', color=color.new(color.yellow, 0), linewidth=2, trackprice=false, style=plot.style_line, offset=1)
+plot(NewH, title='', color=color.new(color.blue, 0), linewidth=2, trackprice=false, style=plot.style_line, offset=1)
+plot(NewL, title='', color=color.new(color.red, 0), linewidth=2, trackprice=false, style=plot.style_line, offset=1)
+
+candleCol = close > NewH ? color.lime : close < NewL ? color.red : color.white
+barcolor(color=candleCol)
+
+//DH = security(syminfo.tickerid, "D", high, lookahead = barmerge.lookahead_off)
+//DL = security(syminfo.tickerid, "D", low, lookahead = barmerge.lookahead_off)
+//DP = sma((DH+DL+close)/3, 3)
+
+//plot(DP, title="", color=color.orange, linewidth=1, style=plot.style_line)
+
+eSignal = 0
+eBuy = close > NewH and (nz(eSignal[1]) == 0 or nz(eSignal[1]) == -1)
+eShort = close < NewL and (nz(eSignal[1]) == 0 or nz(eSignal[1]) == 1)
+eSell = close < NewH and nz(eSignal[1]) == 1
+eCover = close > NewL and nz(eSignal[1]) == -1
+eSignal := eBuy ? 1 : eShort ? -1 : eSell or eCover ? 0 : eSignal[1]
+
+eSellLow = ta.valuewhen(eSell, low, 0)
+eCoverHigh = ta.valuewhen(eCover, high, 0)
+
+eBuyBars = ta.barssince(eBuy)
+eShortBars = ta.barssince(eShort)
+eSellBars = ta.barssince(eSell)
+eCoverBars = ta.barssince(eCover)
+
+BuySignal = eSignal[1] > 0
+ShortSignal = eSignal[1] < 0
+SellSignal = low < eSellLow and eSellBars < eBuyBars
+CoverSignal = high > eCoverHigh and eCoverBars < eShortBars
+
+MainSignal = 0
+BuyFinal = BuySignal and (nz(MainSignal[1]) == 0 or nz(MainSignal[1]) == -1)
+ShortFinal = ShortSignal and (nz(MainSignal[1]) == 0 or nz(MainSignal[1]) == 1)
+SellFinal = SellSignal and nz(MainSignal[1]) == 1
+CoverFinal = CoverSignal and nz(MainSignal[1]) == -1
+MainSignal := BuySignal ? 1 : ShortSignal ? -1 : SellSignal ? 0 : CoverSignal ? 0 : MainSignal[1]
+
+// if SellFinal and strategy.position_size > 0
+//     strategy.close('BUY', comment=' ')
+
+// if CoverFinal and strategy.position_size < 0
+//     strategy.close('SELL', comment=' ')
+
+// if BuyFinal and strategy.position_size <= 0
+//     if strategy.position_size < 0
+//         strategy.close('SELL', comment=' ')
+
+//     strategy.entry('BUY', strategy.long, comment=' ')
+
+// if ShortFinal and strategy.position_size >= 0
+//     if strategy.position_size > 0
+//         strategy.close('BUY', comment=' ')
+
+    //strategy.entry('SELL', strategy.short, comment=' ')
+
+
+plotshape(BuyFinal and not BuyFinal[1], color=color.new(color.green, 0), style=shape.labelup, text='Buy', textcolor=color.new(color.white, 0), location=location.belowbar)
+plotshape(SellFinal and not SellFinal[1], color=color.new(color.red, 0), style=shape.labeldown, text='Sell', textcolor=color.new(color.white, 0), location=location.abovebar)
+
+
+if BuyFinal and not BuyFinal[1]
+    alert('Sai Swing Alert \n\n'+syminfo.ticker+'\n \nBUY SIGNAL\n \nAt price  '+ str.tostring(close)+'\n\nTime frame :=  '+timeframe.period+'',alert.freq_once_per_bar_close)
+
+if SellFinal and not SellFinal[1]
+    alert('Sai Swing Alert \n\n'+syminfo.ticker+'\n \nSELL SIGNAL\n \nAt price  '+ str.tostring(close)+'\n\nTime frame :=  '+timeframe.period+'',alert.freq_once_per_bar_close)
